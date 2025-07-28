@@ -244,6 +244,23 @@ body:before {
     text-align: right;
 }
 
+/* Styles for clickable links in messages */
+.message-content a {
+    color: #128C7E;
+    text-decoration: underline;
+    word-break: break-all;
+    transition: color 0.2s;
+}
+
+.message-content a:hover {
+    color: #075E54;
+    text-decoration: none;
+}
+
+.message-content a:visited {
+    color: #128C7E;
+}
+
 #messageForm {
     padding: 20px;
     background: #f0f0f0;
@@ -276,11 +293,6 @@ body:before {
 
 .input-group button:hover {
     background: #075E54;
-}
-
-.connected-user-repl {
-    font-size: 14px;
-    opacity: 0.8;
 }
 
 @media screen and (max-width: 480px) {

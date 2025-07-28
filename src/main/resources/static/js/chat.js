@@ -86,6 +86,9 @@ function sendMessage(event) {
 function onMessageReceived(payload) {
     var message = JSON.parse(payload.body);
 
+    // Use current client time for real-time messages to show user's local time
+    message.timestamp = new Date();
+
     var messageElement = document.createElement('li');
 
     if(message.type === 'JOIN') {
@@ -114,6 +117,35 @@ function onMessageReceived(payload) {
     messageArea.scrollTop = messageArea.scrollHeight;
 }
 
+// Function to convert URLs in text to clickable links
+function convertUrlsToLinks(text) {
+    // Regular expression to match URLs
+    var urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+    
+    // Replace URLs with clickable links
+    return text.replace(urlRegex, function(url) {
+        // Remove trailing punctuation that might not be part of the URL
+        var cleanUrl = url.replace(/[.,;!?]+$/, '');
+        var trailingPunctuation = url.substring(cleanUrl.length);
+        
+        return '<a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer">' + cleanUrl + '</a>' + trailingPunctuation;
+    });
+}
+
+// Function to safely set HTML content while preserving text security
+function setMessageHtml(element, content) {
+    // First escape any HTML to prevent XSS attacks
+    var div = document.createElement('div');
+    div.textContent = content;
+    var escapedContent = div.innerHTML;
+    
+    // Then convert URLs to links
+    var htmlWithLinks = convertUrlsToLinks(escapedContent);
+    
+    // Set the HTML content
+    element.innerHTML = htmlWithLinks;
+}
+
 function createMessageContent(message) {
     var messageContent = document.createElement('div');
     
@@ -138,7 +170,8 @@ function createMessageContent(message) {
         }
         
         var textElement = document.createElement('div');
-        textElement.textContent = message.content;
+        // Use the new function to handle URLs instead of plain textContent
+        setMessageHtml(textElement, message.content);
         messageContent.appendChild(textElement);
         
         var timeElement = document.createElement('div');
@@ -160,17 +193,35 @@ function getAvatarColor(messageSender) {
 }
 
 function formatTime(timestamp) {
-    if (!timestamp) return '';
+    if (!timestamp) {
+        // If no timestamp provided, use current time (for real-time messages)
+        timestamp = new Date();
+    }
     
     try {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('en-US', { 
+        let date;
+        if (typeof timestamp === 'string') {
+            // Server timestamp format: "yyyy-MM-dd HH:mm:ss"
+            // Treat server time as if it were UTC to avoid timezone issues
+            // Then convert to user's local time
+            date = new Date(timestamp + ' UTC');
+        } else {
+            // Already a Date object or timestamp number
+            date = new Date(timestamp);
+        }
+        
+        return date.toLocaleTimeString(undefined, { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: false 
         });
     } catch (e) {
-        return '';
+        // Fallback: use current time if parsing fails
+        return new Date().toLocaleTimeString(undefined, { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
     }
 }
 
