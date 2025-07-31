@@ -2,6 +2,7 @@
 
 var usernameForm = document.querySelector('#usernameForm');
 var usernameInput = document.querySelector('#name');
+var passwordInput = document.querySelector('#password');
 var statsInfo = document.querySelector('#stats-info');
 
 // Load chat statistics
@@ -27,13 +28,28 @@ function onConnected() {
 }
 
 function connect(event) {
-    var username = usernameInput.value.trim();
-
-    if(username) {
-        localStorage.setItem('username', username);
-        window.location.href = '/chat?username=' + encodeURIComponent(username);
-    }
     event.preventDefault();
+    
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    
+    if (username && password) {
+        // Simple client-side password validation
+        if (password === 'aga') {
+            sessionStorage.setItem('username', username);
+            window.location.href = '/chat';
+        } else {
+            alert('Incorrect password');
+            passwordInput.focus();
+        }
+    } else {
+        alert('Please enter both username and password.');
+        if(!username) {
+            usernameInput.focus();
+        } else {
+            passwordInput.focus();
+        }
+    }
 }
 
 // Event listeners
