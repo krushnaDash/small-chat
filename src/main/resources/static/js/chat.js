@@ -8,9 +8,16 @@ var messageInput = document.querySelector('#message');
 var messageArea = document.querySelector('#messageArea');
 var connectingElement = document.querySelector('.connecting');
 var connectedUserElement = document.querySelector('#connected-user-name');
+var replyPreview = document.querySelector('#replyPreview');
+var replyToSender = document.querySelector('.reply-to-sender');
+var replyToContent = document.querySelector('.reply-to-content');
 
 var stompClient = null;
 var username = null;
+
+// Reply functionality state
+var currentReply = null;
+var selectionMenu = null;
 
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
@@ -27,6 +34,122 @@ function getUsername() {
     }
     
     return localStorage.getItem('username');
+}
+
+// Reply functionality functions
+function showReplyPreview(messageId, sender, content, selectedText) {
+    currentReply = {
+        id: messageId,
+        sender: sender,
+        content: selectedText || content
+    };
+    
+    replyToSender.textContent = sender;
+    replyToContent.textContent = selectedText || content;
+    replyPreview.classList.remove('hidden');
+    
+    // Focus on message input
+    messageInput.focus();
+}
+
+function cancelReply() {
+    currentReply = null;
+    replyPreview.classList.add('hidden');
+    hideSelectionMenu();
+}
+
+function showSelectionMenu(x, y, messageId, sender, content, selectedText) {
+    console.log('showSelectionMenu called:', { x, y, messageId, sender, selectedText });
+    hideSelectionMenu();
+    
+    selectionMenu = document.createElement('div');
+    selectionMenu.className = 'selection-menu';
+    selectionMenu.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${y}px;
+        z-index: 10000;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        padding: 5px;
+    `;
+    
+    var replyButton = document.createElement('button');
+    replyButton.textContent = 'Reply';
+    replyButton.style.cssText = `
+        background: #128C7E;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    `;
+    
+    replyButton.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Reply button clicked');
+        showReplyPreview(messageId, sender, content, selectedText);
+        hideSelectionMenu();
+    };
+    
+    selectionMenu.appendChild(replyButton);
+    document.body.appendChild(selectionMenu);
+    console.log('Selection menu added to DOM at:', { x, y });
+}
+
+function hideSelectionMenu() {
+    if (selectionMenu) {
+        document.body.removeChild(selectionMenu);
+        selectionMenu = null;
+    }
+}
+
+function handleTextSelection(event, messageElement, messageId, sender, content) {
+    console.log('handleTextSelection called:', { messageId, sender, content });
+    
+    // Prevent event bubbling
+    event.stopPropagation();
+    
+    // Small delay to ensure selection is complete
+    setTimeout(function() {
+        var selection = window.getSelection();
+        var selectedText = selection.toString().trim();
+        
+        console.log('Selection detected:', { selectedText, length: selectedText.length });
+        
+        if (selectedText.length > 0) {
+            try {
+                var range = selection.getRangeAt(0);
+                var rect = range.getBoundingClientRect();
+                
+                console.log('Selection rect:', rect);
+                console.log('Window scroll:', { x: window.scrollX, y: window.scrollY });
+                
+                // Calculate position for selection menu
+                var menuX = Math.max(10, rect.left + window.scrollX);
+                var menuY = rect.bottom + window.scrollY + 5;
+                
+                // Show selection menu near the selected text
+                showSelectionMenu(
+                    menuX,
+                    menuY,
+                    messageId,
+                    sender,
+                    content,
+                    selectedText
+                );
+            } catch (e) {
+                console.log('Selection error:', e);
+            }
+        } else {
+            console.log('No text selected');
+            hideSelectionMenu();
+        }
+    }, 100);
 }
 
 function connect(event) {
@@ -77,8 +200,21 @@ function sendMessage(event) {
             content: messageInput.value,
             type: 'CHAT'
         };
+        
+        // Add reply information if replying to a message
+        if (currentReply) {
+            chatMessage.replyToId = currentReply.id;
+            chatMessage.replyToSender = currentReply.sender;
+            chatMessage.replyToContent = currentReply.content;
+        }
+        
         stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
         messageInput.value = '';
+        
+        // Clear reply after sending
+        if (currentReply) {
+            cancelReply();
+        }
     }
     event.preventDefault();
 }
@@ -162,6 +298,7 @@ function createMessageContent(message) {
         } else {
             messageContent.classList.add('received');
             
+            // Only show sender name for received messages, not sent ones
             var senderElement = document.createElement('div');
             senderElement.classList.add('message-sender');
             senderElement.textContent = message.sender;
@@ -169,10 +306,43 @@ function createMessageContent(message) {
             messageContent.appendChild(senderElement);
         }
         
+        // Add reply section if this message is a reply
+        if (message.replyToId && message.replyToSender && message.replyToContent) {
+            var replySection = document.createElement('div');
+            replySection.classList.add('message-reply');
+            
+            var replyHeader = document.createElement('div');
+            replyHeader.classList.add('reply-original-sender');
+            replyHeader.textContent = '↳ ' + message.replyToSender;
+            replySection.appendChild(replyHeader);
+            
+            var replyContent = document.createElement('div');
+            replyContent.classList.add('reply-original-content');
+            replyContent.textContent = message.replyToContent.substring(0, 50) + (message.replyToContent.length > 50 ? '...' : '');
+            replySection.appendChild(replyContent);
+            
+            messageContent.appendChild(replySection);
+        }
+        
         var textElement = document.createElement('div');
+        textElement.classList.add('message-text');
+        textElement.setAttribute('data-message-id', message.id);
+        textElement.setAttribute('data-sender', message.sender);
+        textElement.setAttribute('data-content', message.content);
+        
         // Use the new function to handle URLs instead of plain textContent
         setMessageHtml(textElement, message.content);
         messageContent.appendChild(textElement);
+        
+        // Add text selection event listener directly on the text element
+        textElement.addEventListener('mouseup', function(event) {
+            console.log('Text element clicked for selection');
+            handleTextSelection(event, textElement, message.id, message.sender, message.content);
+        });
+        
+        // Ensure text is selectable
+        textElement.style.userSelect = 'text';
+        textElement.style.cursor = 'text';
         
         var timeElement = document.createElement('div');
         timeElement.classList.add('message-time');
@@ -323,5 +493,21 @@ document.addEventListener('visibilitychange', function() {
         // Page is hidden, enable notifications
     } else {
         // Page is visible, user is actively viewing
+    }
+});
+
+// Global event listeners for reply functionality
+document.addEventListener('click', function(event) {
+    // Hide selection menu when clicking outside
+    if (selectionMenu && !selectionMenu.contains(event.target)) {
+        hideSelectionMenu();
+    }
+});
+
+// Clear text selection when clicking outside messages
+document.addEventListener('mousedown', function(event) {
+    if (!event.target.closest('.message-content')) {
+        window.getSelection().removeAllRanges();
+        hideSelectionMenu();
     }
 });
