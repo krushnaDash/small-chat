@@ -28,27 +28,47 @@ function onConnected() {
 }
 
 function connect(event) {
+    console.log('Connect function called');
     event.preventDefault();
     
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     
-    if (username && password) {
-        // Simple client-side password validation
-        if (password === 'aga') {
+    console.log('Authentication attempt:', { username: username, passwordLength: password.length });
+    
+    if (!username) {
+        alert('Please enter your username.');
+        usernameInput.focus();
+        return;
+    }
+    
+    if (!password) {
+        alert('Please enter the chat password.');
+        passwordInput.focus();
+        return;
+    }
+    
+    // Simple client-side password validation
+    if (password === 'aga') {
+        console.log('Password correct, redirecting to chat');
+        try {
             sessionStorage.setItem('username', username);
-            window.location.href = '/chat';
-        } else {
-            alert('Incorrect password');
-            passwordInput.focus();
+            console.log('Username stored in sessionStorage:', sessionStorage.getItem('username'));
+            
+            // Use a more reliable redirect method
+            setTimeout(function() {
+                window.location.href = '/chat';
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error during authentication:', error);
+            alert('Authentication error. Please try again.');
         }
     } else {
-        alert('Please enter both username and password.');
-        if(!username) {
-            usernameInput.focus();
-        } else {
-            passwordInput.focus();
-        }
+        console.log('Incorrect password provided');
+        alert('Incorrect password. Please try again.');
+        passwordInput.value = '';
+        passwordInput.focus();
     }
 }
 

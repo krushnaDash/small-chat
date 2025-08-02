@@ -19,6 +19,49 @@ var username = null;
 var currentReply = null;
 var selectionMenu = null;
 
+// Check for authenticated user on page load
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('Chat page loaded, checking for authenticated user');
+    
+    // Check if user is already authenticated from the login page
+    var authenticatedUsername = sessionStorage.getItem('username');
+    console.log('Authenticated username from sessionStorage:', authenticatedUsername);
+    
+    if (authenticatedUsername && authenticatedUsername.trim()) {
+        console.log('User already authenticated, auto-connecting to chat');
+        username = authenticatedUsername.trim();
+        
+        // Hide username form and show chat directly
+        if (usernamePage) {
+            usernamePage.classList.add('hidden');
+        }
+        if (chatPage) {
+            chatPage.classList.remove('hidden');
+        }
+        
+        // Auto-connect to WebSocket
+        connectToChat();
+    } else {
+        console.log('No authenticated user found, showing username form');
+        // Show username form for manual entry
+        if (usernamePage) {
+            usernamePage.classList.remove('hidden');
+        }
+        if (chatPage) {
+            chatPage.classList.add('hidden');
+        }
+    }
+});
+
+// Function to connect to chat WebSocket
+function connectToChat() {
+    console.log('Connecting to chat with username:', username);
+    
+    var socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+    stompClient.connect({}, onConnected, onError);
+}
+
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
     '#ffc107', '#ff85af', '#FF9800', '#39bbb0'
@@ -109,17 +152,20 @@ function hideSelectionMenu() {
 }
 
 function handleTextSelection(event, messageElement, messageId, sender, content) {
-    console.log('handleTextSelection called:', { messageId, sender, content });
+    console.log('handleTextSelection called:', { messageId, sender, content, eventType: event.type });
     
     // Prevent event bubbling
     event.stopPropagation();
+    
+    // Different delays for different event types (mobile needs more time)
+    var delay = event.type === 'touchend' ? 300 : 100;
     
     // Small delay to ensure selection is complete
     setTimeout(function() {
         var selection = window.getSelection();
         var selectedText = selection.toString().trim();
         
-        console.log('Selection detected:', { selectedText, length: selectedText.length });
+        console.log('Selection detected:', { selectedText, length: selectedText.length, eventType: event.type });
         
         if (selectedText.length > 0) {
             try {
@@ -131,7 +177,14 @@ function handleTextSelection(event, messageElement, messageId, sender, content) 
                 
                 // Calculate position for selection menu
                 var menuX = Math.max(10, rect.left + window.scrollX);
-                var menuY = rect.bottom + window.scrollY + 5;
+                var menuY = rect.bottom + window.scrollY + 10; // More space for mobile
+                
+                // Adjust for mobile viewport
+                if (window.innerWidth < 768) {
+                    // On mobile, position menu more centrally
+                    menuX = Math.min(menuX, window.innerWidth - 100);
+                    menuY = Math.min(menuY, window.innerHeight - 50);
+                }
                 
                 // Show selection menu near the selected text
                 showSelectionMenu(
@@ -149,22 +202,41 @@ function handleTextSelection(event, messageElement, messageId, sender, content) 
             console.log('No text selected');
             hideSelectionMenu();
         }
-    }, 100);
+    }, delay);
 }
 
 function connect(event) {
-    username = document.querySelector('#name').value.trim();
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Get username from form input
+    var nameInput = document.querySelector('#name');
+    if (nameInput && nameInput.value.trim()) {
+        username = nameInput.value.trim();
+        console.log('Username entered manually:', username);
+        
+        // Store in sessionStorage for future use
+        sessionStorage.setItem('username', username);
+    }
 
     if(username) {
-        usernamePage.classList.add('hidden');
-        chatPage.classList.remove('hidden');
+        console.log('Connecting with username:', username);
+        
+        // Hide username form and show chat
+        if (usernamePage) {
+            usernamePage.classList.add('hidden');
+        }
+        if (chatPage) {
+            chatPage.classList.remove('hidden');
+        }
 
-        var socket = new SockJS('/ws');
-        stompClient = Stomp.over(socket);
-
-        stompClient.connect({}, onConnected, onError);
+        // Connect to WebSocket
+        connectToChat();
+    } else {
+        console.log('No username provided');
+        alert('Please enter your username.');
     }
-    event.preventDefault();
 }
 
 function onConnected() {
@@ -334,10 +406,28 @@ function createMessageContent(message) {
         setMessageHtml(textElement, message.content);
         messageContent.appendChild(textElement);
         
-        // Add text selection event listener directly on the text element
+        // Add text selection event listeners for both desktop and mobile
+        // Desktop: mouseup event
         textElement.addEventListener('mouseup', function(event) {
-            console.log('Text element clicked for selection');
+            console.log('Text element mouseup for selection');
             handleTextSelection(event, textElement, message.id, message.sender, message.content);
+        });
+        
+        // Mobile: touchend event
+        textElement.addEventListener('touchend', function(event) {
+            console.log('Text element touchend for selection');
+            // Prevent default to avoid triggering mouseup as well
+            event.preventDefault();
+            handleTextSelection(event, textElement, message.id, message.sender, message.content);
+        });
+        
+        // Additional mobile support: selectionchange event
+        textElement.addEventListener('selectionchange', function(event) {
+            console.log('Selection changed on text element');
+            // Small delay to handle mobile selection
+            setTimeout(function() {
+                handleTextSelection(event, textElement, message.id, message.sender, message.content);
+            }, 200);
         });
         
         // Ensure text is selectable
@@ -499,7 +589,7 @@ document.addEventListener('visibilitychange', function() {
 // Global event listeners for reply functionality
 document.addEventListener('click', function(event) {
     // Hide selection menu when clicking outside
-    if (selectionMenu && !selectionMenu.contains(event.target)) {
+    if (!event.target.closest('.selection-menu')) {
         hideSelectionMenu();
     }
 });
@@ -511,3 +601,64 @@ document.addEventListener('mousedown', function(event) {
         hideSelectionMenu();
     }
 });
+
+// Mobile-specific: Global selection change handler
+document.addEventListener('selectionchange', function() {
+    // Only handle if we're on mobile
+    if (window.innerWidth <= 768) {
+        setTimeout(function() {
+            var selection = window.getSelection();
+            var selectedText = selection.toString().trim();
+            
+            if (selectedText.length > 0) {
+                // Find the message element containing the selection
+                var range = selection.getRangeAt(0);
+                var container = range.commonAncestorContainer;
+                
+                // Walk up the DOM to find the message text element
+                var messageTextElement = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+                while (messageTextElement && !messageTextElement.classList.contains('message-text')) {
+                    messageTextElement = messageTextElement.parentNode;
+                    if (!messageTextElement || messageTextElement === document.body) {
+                        return; // Not within a message
+                    }
+                }
+                
+                if (messageTextElement && messageTextElement.classList.contains('message-text')) {
+                    var messageId = messageTextElement.getAttribute('data-message-id');
+                    var sender = messageTextElement.getAttribute('data-sender');
+                    var content = messageTextElement.getAttribute('data-content');
+                    
+                    if (messageId && sender && content) {
+                        console.log('Mobile selection detected via selectionchange:', { messageId, sender, selectedText });
+                        
+                        try {
+                            var rect = range.getBoundingClientRect();
+                            var menuX = Math.max(10, rect.left + window.scrollX);
+                            var menuY = rect.bottom + window.scrollY + 15;
+                            
+                            // Adjust for mobile viewport
+                            menuX = Math.min(menuX, window.innerWidth - 100);
+                            menuY = Math.min(menuY, window.innerHeight - 60);
+                            
+                            showSelectionMenu(menuX, menuY, messageId, sender, content, selectedText);
+                        } catch (e) {
+                            console.log('Mobile selection error:', e);
+                        }
+                    }
+                }
+            } else {
+                hideSelectionMenu();
+            }
+        }, 500); // Longer delay for mobile
+    }
+});
+
+// Event listeners for form submissions
+if (usernameForm) {
+    usernameForm.addEventListener('submit', connect, true);
+}
+
+if (messageForm) {
+    messageForm.addEventListener('submit', sendMessage, true);
+}
