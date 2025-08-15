@@ -100,6 +100,90 @@ src/
     └── java/com/krushna/smallchat/
         └── SmallChatApplicationTests.java
 ```
+## MCP server details
+
+SmallChat exposes MCP-style admin operations via a single Spring Boot REST controller at `/mcp/**`.
+
+- Controller: `src/main/java/com/krushna/smallchat/controller/McpController.java`
+- Auth: Bearer token required (configurable)
+- Broadcasts: `POST /mcp/messages` publishes to `/topic/public`
+
+### Configure authentication
+
+In `src/main/resources/application.properties`:
+
+```properties
+# Enable/disable MCP auth (default: true)
+mcp.auth.enabled=true
+# Shared bearer token for MCP clients (change this!)
+mcp.auth.token=***
+```
+
+When `mcp.auth.enabled=true`, all `/mcp/**` endpoints require:
+
+```
+Authorization: Bearer <TOKEN>
+```
+
+### Quick start (localhost)
+
+Set environment helpers for curl:
+
+```bash
+BASE="http://localhost:8080"
+TOKEN="changeme"   # replace if you changed mcp.auth.token
+AUTH="Authorization: Bearer $TOKEN"
+```
+
+### Endpoints and curl examples
+
+- __Health__ — `GET /mcp/health`
+
+```bash
+curl -sH "$AUTH" "$BASE/mcp/health"
+```
+
+- __Stats__ — `GET /mcp/stats`
+
+```bash
+curl -sH "$AUTH" "$BASE/mcp/stats"
+```
+
+- __Get recent messages__ — `GET /mcp/messages/recent?limit=50`
+
+```bash
+curl -sH "$AUTH" "$BASE/mcp/messages/recent?limit=50"
+```
+
+- __Get all messages (paged)__ — `GET /mcp/messages?page=0&size=100`
+
+```bash
+curl -sH "$AUTH" "$BASE/mcp/messages?page=0&size=100"
+```
+
+- __Post a message (broadcasts to /topic/public)__ — `POST /mcp/messages`
+
+```bash
+curl -sX POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"sender":"Admin","content":"Hello from MCP!","type":"CHAT"}' \
+  "$BASE/mcp/messages"
+```
+
+Notes:
+
+- `type` is optional; defaults to `CHAT`. Allowed: `CHAT`, `JOIN`, `LEAVE`.
+- Server assigns a timestamp if not provided.
+
+- __Clear all messages__ — `POST /mcp/messages/clear`
+
+```bash
+curl -sX POST -H "$AUTH" "$BASE/mcp/messages/clear"
+```
+
+### CORS
+
+MCP controller is annotated with `@CrossOrigin(origins = "*")`. Restrict origins as needed for production.
+
 
 ## Deployment to Azure
 
