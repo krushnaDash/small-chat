@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmallChat Admin</title>
+  <style>
+    :root { --green: #128C7E; --green-dark: #0e6f65; --bg: #f5f7f8; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: #222; }
+    header { background: var(--green); color: #fff; padding: 16px 20px; }
+    header h1 { margin: 0; font-size: 18px; }
+    main { padding: 20px; max-width: 980px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 16px; margin-bottom: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn { background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: var(--green-dark); }
+    .btn.danger { background: #c83e36; }
+    .btn.danger:hover { background: #a3322b; }
+    .input { border: 1px solid #d0d7de; border-radius: 8px; padding: 10px 12px; min-width: 100px; }
+    .output { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #0b1020; color: #c5e4ff; border-radius: 10px; padding: 12px; max-height: 50vh; overflow: auto; }
+    .muted { color: #667085; font-size: 12px; }
+    .spacer { height: 8px; }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SmallChat Admin</h1>
+  </header>
+  <main>
+    <div class="card">
+      <div class="row">
+        <button id="btnHealth" class="btn">Health Check</button>
+        <button id="btnStats" class="btn">Get Stats</button>
+        <button id="btnAllMsgs" class="btn">Get All Messages</button>
+        <label for="limit" class="muted">Recent limit</label>
+        <input id="limit" class="input" type="number" min="1" value="50" />
+        <button id="btnRecent" class="btn">Get Recent Messages</button>
+        <button id="btnClear" class="btn danger">Clear All Messages</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="muted">Endpoints: /api/health, /api/stats, /api/messages, /api/messages/recent?limit=, POST /api/messages/clear</div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Response</div>
+      <div id="output" class="output">Click a button to call an endpoint…</div>
+    </div>
+
+    <div class="card">
+      <a href="/" title="Home">← Back to Home</a>
+    </div>
+  </main>
+
+  <script>
+    const out = document.getElementById('output');
+
+    function show(obj) {
+      try {
+        out.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+      } catch (e) {
+        out.textContent = String(obj);
+      }
+    }
+
+    async function callJSON(url, options = {}) {
+      try {
+        const res = await fetch(url, options);
+        const text = await res.text();
+        let body;
+        try { body = text ? JSON.parse(text) : {}; } catch { body = text; }
+        if (!res.ok) throw { status: res.status, body };
+        return body;
+      } catch (err) {
+        show({ error: true, details: err });
+        throw err;
+      }
+    }
+
+    document.getElementById('btnHealth').addEventListener('click', async () => {
+      const data = await callJSON('/api/health');
+      show(data);
+    });
+
+    document.getElementById('btnStats').addEventListener('click', async () => {
+      const data = await callJSON('/api/stats');
+      show(data);
+    });
+
+    document.getElementById('btnAllMsgs').addEventListener('click', async () => {
+      const data = await callJSON('/api/messages');
+      show(data);
+    });
+
+    document.getElementById('btnRecent').addEventListener('click', async () => {
+      const limit = Number(document.getElementById('limit').value) || 50;
+      const data = await callJSON(`/api/messages/recent?limit=${encodeURIComponent(limit)}`);
+      show(data);
+    });
+
+    document.getElementById('btnClear').addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to clear ALL messages?')) return;
+      const data = await callJSON('/api/messages/clear', { method: 'POST' });
+      show(data);
+    });
+  </script>
+</body>
+</html>

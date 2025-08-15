@@ -185,6 +185,47 @@ curl -sX POST -H "$AUTH" "$BASE/mcp/messages/clear"
 MCP controller is annotated with `@CrossOrigin(origins = "*")`. Restrict origins as needed for production.
 
 
+````
+{
+  "mcp.servers": [
+    {
+      "id": "smallchat-mcp",
+      "type": "rest",
+      "baseUrl": "http://localhost:8080",
+      "auth": {
+        "type": "bearer",
+        "header": "Authorization",
+        "value": "Bearer ${env:MCP_TOKEN}"
+      },
+      "tools": [
+        { "name": "health_check", "method": "GET", "path": "/mcp/health" },
+        { "name": "get_stats", "method": "GET", "path": "/mcp/stats" },
+        {
+          "name": "get_recent_chats",
+          "method": "GET",
+          "path": "/mcp/messages/recent",
+          "queryFromArgs": ["limit"]
+        },
+        {
+          "name": "get_all_messages",
+          "method": "GET",
+          "path": "/mcp/messages",
+          "queryFromArgs": ["page", "size"]
+        },
+        {
+          "name": "post_message",
+          "method": "POST",
+          "path": "/mcp/messages",
+          "bodyFromArgs": ["sender", "content", "type"]
+        },
+        { "name": "clear_all_chats", "method": "POST", "path": "/mcp/messages/clear" }
+      ]
+    }
+  ]
+}
+````
+
+
 ## Deployment to Azure
 
 The application is configured for deployment to Azure App Service. See the GitHub Actions workflow in `.github/workflows/azure-deploy.yml` for automated CI/CD.
