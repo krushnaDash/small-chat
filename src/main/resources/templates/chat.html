@@ -25,11 +25,17 @@
 
     <div id="chat-page" class="chat-page">
         <div class="chat-container">
-            <div class="chat-header">
-                <h2>SmallChat</h2>
-                <div class="connected-user-repl">
-                    <span id="connected-user-name"></span>
+            <div class="chat-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <h2 style="margin:0;">SmallChat</h2>
+                    <div class="connected-user-repl">
+                        <span id="connected-user-name"></span>
+                    </div>
                 </div>
+                <form method="post" action="/logout">
+                    <input type="hidden" name="redirect" value="/chat" />
+                    <button type="submit" class="accent username-submit" style="padding:6px 10px;">Logout</button>
+                </form>
             </div>
             <div class="connecting">
                 Connecting...

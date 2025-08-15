@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmallChat Login</title>
+  <style>
+    :root { --green:#128C7E; --green-dark:#0e6f65; --bg:#f5f7f8; }
+    body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .wrap { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .card { width:100%; max-width:380px; background:#fff; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,0.08); padding:20px; }
+    h1 { margin:0 0 8px 0; font-size:20px; }
+    p { margin:0 0 16px 0; color:#667085; }
+    .row { display:flex; flex-direction:column; gap:8px; }
+    .input { border:1px solid #d0d7de; border-radius:10px; padding:12px; font-size:15px; width:100%; }
+    .btn { margin-top:10px; background:var(--green); color:#fff; border:none; border-radius:10px; padding:12px; font-weight:700; cursor:pointer; width:100%; }
+    .btn:hover { background:var(--green-dark); }
+    .error { color:#b42318; background:#fee4e2; border:1px solid #fda29b; padding:8px 10px; border-radius:8px; margin-bottom:10px; }
+    .note { color:#667085; font-size:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <form class="card" method="post" action="/login">
+      <h1>Sign in</h1>
+      <p>Enter the site password to continue</p>
+      <div id="errorBox" class="error" style="display:none;"></div>
+      <div class="row">
+        <input class="input" type="password" name="password" placeholder="Password" autocomplete="current-password" required />
+        <input type="hidden" name="redirect" id="redirect" />
+        <button class="btn" type="submit">Continue</button>
+        <div class="note">If you forgot the password, contact the site admin.</div>
+      </div>
+    </form>
+  </div>
+  <script>
+    // Populate redirect and show errors
+    const params = new URLSearchParams(location.search);
+    const redir = params.get('redirect') || '/';
+    document.getElementById('redirect').value = redir;
+    const error = params.get('error');
+    const hasPassword = true; // server ensures page only shown if password is configured
+    if (error) {
+      const box = document.getElementById('errorBox');
+      box.style.display = 'block';
+      box.textContent = error === 'nopass' ? 'Login disabled: no password configured on server.' : 'Incorrect password. Please try again.';
+    }
+  </script>
+</body>
+</html>
