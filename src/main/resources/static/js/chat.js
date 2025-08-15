@@ -86,8 +86,10 @@ function sendMessage(event) {
 function onMessageReceived(payload) {
     var message = JSON.parse(payload.body);
 
-    // Use current client time for real-time messages to show user's local time
-    message.timestamp = new Date();
+    // Do NOT override server timestamp. If missing, fallback to client time.
+    if (!message.timestamp) {
+        message.timestamp = new Date();
+    }
 
     var messageElement = document.createElement('li');
 
@@ -201,26 +203,50 @@ function formatTime(timestamp) {
     try {
         let date;
         if (typeof timestamp === 'string') {
-            // Server timestamp format: "yyyy-MM-dd HH:mm:ss"
-            // Treat server time as if it were UTC to avoid timezone issues
-            // Then convert to user's local time
-            date = new Date(timestamp + ' UTC');
+            const raw = timestamp.trim();
+            // Handle common server formats robustly
+            // Case 1: "yyyy-MM-dd HH:mm:ss" (no timezone) -> interpret as LOCAL time
+            const ldtMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(raw);
+            if (ldtMatch) {
+                const [, y, mo, d, h, mi, s] = ldtMatch.map(Number);
+                date = new Date(y, mo - 1, d, h, mi, s);
+            } else {
+                // Case 2: ISO-like without timezone -> interpret as LOCAL time
+                const isoNoZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(raw);
+                if (isoNoZone) {
+                    const [, y, mo, d, h, mi, s, msStr] = isoNoZone;
+                    const ms = msStr ? Number(msStr.padEnd(3, '0').slice(0, 3)) : 0;
+                    date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), ms);
+                } else {
+                    // Any other parseable format; let Date try
+                    date = new Date(raw);
+                }
+            }
         } else {
             // Already a Date object or timestamp number
             date = new Date(timestamp);
         }
-        
-        return date.toLocaleTimeString(undefined, { 
-            hour: '2-digit', 
+
+        if (isNaN(date.getTime())) {
+            // Fallback: use current time if parsing fails
+            date = new Date();
+        }
+
+        return date.toLocaleString(undefined, {
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
             minute: '2-digit',
-            hour12: false 
+            hour12: true
         });
     } catch (e) {
         // Fallback: use current time if parsing fails
-        return new Date().toLocaleTimeString(undefined, { 
-            hour: '2-digit', 
+        return new Date().toLocaleString(undefined, {
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
             minute: '2-digit',
-            hour12: false 
+            hour12: true
         });
     }
 }
