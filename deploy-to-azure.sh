@@ -17,15 +17,27 @@ fi
 RESOURCE_GROUP="smallchat-rg"
 APP_SERVICE_PLAN="smallchat-plan"
 TIMESTAMP=$(date +%Y%m%d%H%M)
-WEB_APP_NAME="ega-aga-smallchat"  # Unique name with timestamp
+WEB_APP_NAME="ega-aga-smallchat"  # must be globally unique
 LOCATION="Central India"
 RUNTIME="JAVA|17-java17"
+
+# Storage variables
+# Storage account name must be lowercase alphanumeric and <=24 chars.
+# Use a short suffix from timestamp to keep under limit.
+SA_SUFFIX=${TIMESTAMP: -6}
+STORAGE_ACCOUNT_NAME="smallchat${SA_SUFFIX}"
+TABLE_NAME="SmallChatMessages"
+TABLE_PARTITION="default"
+CONTAINER_NAME="smallchatmedia"
 
 echo "Creating Azure resources..."
 echo "Resource Group: $RESOURCE_GROUP"
 echo "App Service Plan: $APP_SERVICE_PLAN"
 echo "Web App Name: $WEB_APP_NAME"
 echo "Location: $LOCATION"
+echo "Storage Account: $STORAGE_ACCOUNT_NAME"
+echo "Table Name: $TABLE_NAME"
+echo "Blob Container: $CONTAINER_NAME"
 
 # Login to Azure (uncomment if not already logged in)
 # az login
@@ -69,6 +81,49 @@ if [ $? -ne 0 ]; then
 fi
 echo "Web app created successfully!"
 
+# Create Storage Account
+echo "Creating storage account..."
+az storage account create \
+    --name $STORAGE_ACCOUNT_NAME \
+    --resource-group $RESOURCE_GROUP \
+    --location "$LOCATION" \
+    --sku Standard_LRS \
+    --kind StorageV2
+if [ $? -ne 0 ]; then
+    echo "Failed to create storage account. Exiting."
+    exit 1
+fi
+
+# Fetch connection string
+CONNECTION_STRING=$(az storage account show-connection-string \
+    --name $STORAGE_ACCOUNT_NAME \
+    --resource-group $RESOURCE_GROUP \
+    --query connectionString -o tsv)
+if [ -z "$CONNECTION_STRING" ]; then
+    echo "Failed to retrieve storage connection string. Exiting."
+    exit 1
+fi
+
+# Create Table
+echo "Creating table $TABLE_NAME ..."
+az storage table create \
+    --name $TABLE_NAME \
+    --connection-string "$CONNECTION_STRING" >/dev/null
+if [ $? -ne 0 ]; then
+    echo "Failed to create storage table. Exiting."
+    exit 1
+fi
+
+# Create Blob Container
+echo "Creating blob container $CONTAINER_NAME ..."
+az storage container create \
+    --name $CONTAINER_NAME \
+    --connection-string "$CONNECTION_STRING" >/dev/null
+if [ $? -ne 0 ]; then
+    echo "Failed to create blob container. Exiting."
+    exit 1
+fi
+
 # Configure app settings
 echo "Configuring app settings..."
 az webapp config appsettings set \
@@ -76,7 +131,11 @@ az webapp config appsettings set \
     --resource-group $RESOURCE_GROUP \
     --settings \
     SMALLCHAT_MESSAGE_RETENTION_DAYS=3 \
-    JAVA_OPTS="-Dserver.port=80"
+    JAVA_OPTS="-Dserver.port=80" \
+    AZURE_TABLE_CONNECTION_STRING="$CONNECTION_STRING" \
+    SMALLCHAT_AZURE_TABLE_NAME="$TABLE_NAME" \
+    SMALLCHAT_AZURE_TABLE_PARTITION="$TABLE_PARTITION" \
+    SMALLCHAT_AZURE_BLOB_CONTAINER="$CONTAINER_NAME"
 
 # Get publish profile for GitHub Actions
 echo "Getting publish profile..."

@@ -25,6 +25,18 @@
     .spacer { height: 8px; }
     a { color: var(--green); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    /* Table styles for messages */
+    .table-wrap { max-height: 60vh; overflow: auto; background: #fff; border-radius: 10px; border: 1px solid #e5e7eb; }
+    table.msgs { width: 100%; border-collapse: separate; border-spacing: 0; }
+    table.msgs thead th { position: sticky; top: 0; background: #f7fafc; z-index: 1; text-align: left; font-size: 12px; color: #475467; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+    table.msgs tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f3f5; vertical-align: top; font-size: 14px; }
+    table.msgs tbody tr:hover { background: #fafafa; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge.chat { background: #e7f8f5; color: #107a6d; }
+    .badge.join { background: #e6f0ff; color: #2b59c3; }
+    .badge.leave { background: #fdecec; color: #c62828; }
+    .content { white-space: pre-wrap; word-break: break-word; }
+    .content a { color: #0d6efd; }
   </style>
 </head>
 <body>
@@ -73,6 +85,65 @@
       }
     }
 
+    function setOutputHtml(html) {
+      out.classList.remove('output'); // switch from code block look
+      out.outerHTML = `<div id="output" class="table-wrap">${html}</div>`;
+      // restore reference
+      return document.getElementById('output');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function convertUrlsToLinks(text) {
+      const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+      return escapeHtml(text).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1<\/a>');
+    }
+
+    function renderMessagesTable(messages) {
+      if (!Array.isArray(messages)) { show(messages); return; }
+      // Build rows
+      const rows = messages.map(m => {
+        const type = (m.type || '').toString().toUpperCase();
+        const badgeClass = type === 'CHAT' ? 'chat' : type === 'JOIN' ? 'join' : type === 'LEAVE' ? 'leave' : 'chat';
+        const sender = escapeHtml(m.sender ?? '');
+        let messageHtml = convertUrlsToLinks(m.content ?? '');
+        // If imageUrl present, show a thumbnail/link
+        if (m.imageUrl) {
+          const img = `<div><a href="${escapeHtml(m.imageUrl)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(m.imageUrl)}" alt="image" style="max-height:64px;border-radius:6px"/></a></div>`;
+          const caption = m.content ? `<div style="margin-top:6px">${messageHtml}</div>` : '';
+          messageHtml = `${img}${caption}`;
+        }
+        const time = escapeHtml(m.timestamp ?? '');
+        return `<tr>
+          <td style="width:140px">${sender}<div class="badge ${badgeClass}" style="margin-top:4px">${escapeHtml(type)}</div></td>
+          <td class="content">${messageHtml}</td>
+          <td style="width:160px;white-space:nowrap">${time}</td>
+        </tr>`;
+      }).join('');
+
+      const html = `
+        <table class="msgs">
+          <thead>
+            <tr>
+              <th>Sender</th>
+              <th>Message</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="3" class="muted">No messages</td></tr>'}
+          </tbody>
+        </table>`;
+      setOutputHtml(html);
+    }
+
     async function callJSON(url, options = {}) {
       try {
         const res = await fetch(url, options);
@@ -99,13 +170,13 @@
 
     document.getElementById('btnAllMsgs').addEventListener('click', async () => {
       const data = await callJSON('/api/messages');
-      show(data);
+      renderMessagesTable(data);
     });
 
     document.getElementById('btnRecent').addEventListener('click', async () => {
       const limit = Number(document.getElementById('limit').value) || 50;
       const data = await callJSON(`/api/messages/recent?limit=${encodeURIComponent(limit)}`);
-      show(data);
+      renderMessagesTable(data);
     });
 
     document.getElementById('btnClear').addEventListener('click', async () => {
