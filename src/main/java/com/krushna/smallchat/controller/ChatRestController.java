@@ -45,6 +45,14 @@ public class ChatRestController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/messages/reload")
+    public ResponseEntity<Map<String, Object>> reloadFromAzure() {
+        int loaded = messageStorageService.reloadFromPersistence();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("loaded", loaded);
+        return ResponseEntity.ok(resp);
+    }
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> healthCheck() {
         Map<String, String> health = new HashMap<>();
