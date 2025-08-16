@@ -133,4 +133,32 @@ public class MessageStorageService {
             log.warn("Failed to hydrate from Azure: {}. Continuing with empty memory.", e.getMessage());
         }
     }
+
+    /**
+     * Clear in-memory messages and reload from Azure Table within retention window.
+     * @return number of messages loaded
+     */
+    public int reloadFromPersistence() {
+        if (repository == null || !repository.isEnabled()) {
+            log.info("Reload requested but persistence is disabled");
+            return 0;
+        }
+        messages.clear();
+        LocalDateTime since = LocalDateTime.now().minusDays(messageRetentionDays);
+        try {
+            List<ChatMessage> persisted = repository.loadSince(since);
+            List<ChatMessage> sorted = new ArrayList<>(persisted);
+            Collections.sort(sorted, (a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+            for (ChatMessage m : sorted) {
+                if (m.getId() != null) {
+                    messages.put(m.getId(), m);
+                }
+            }
+            log.info("Reloaded {} messages from Azure", sorted.size());
+            return sorted.size();
+        } catch (Exception e) {
+            log.warn("Reload from Azure failed: {}", e.getMessage());
+            return 0;
+        }
+    }
 }

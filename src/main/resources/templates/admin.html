@@ -51,22 +51,20 @@
   </header>
   <main>
     <div class="card">
-      <div class="row">
-        <button id="btnHealth" class="btn">Health Check</button>
-        <button id="btnStats" class="btn">Get Stats</button>
+      <div class="row" style="gap:8px; align-items:center;">
+        <button id="btnHealth" class="btn">Health</button>
+        <button id="btnStats" class="btn">Stats</button>
         <button id="btnAllMsgs" class="btn">Get All Messages</button>
-        <label for="limit" class="muted">Recent limit</label>
-        <input id="limit" class="input" type="number" min="1" value="50" />
-        <button id="btnRecent" class="btn">Get Recent Messages</button>
-        <button id="btnClear" class="btn danger">Clear All Messages</button>
+        <div class="row" style="gap:6px; align-items:center;">
+          <input id="limit" class="input" type="number" min="1" value="50" />
+          <button id="btnRecent" class="btn">Get Recent</button>
+        </div>
+        <button id="btnClear" class="btn danger">Clear All</button>
+        <button id="btnReloadAzure" class="btn" title="Reload from Azure Table into memory">Reload from Azure</button>
       </div>
       <div class="spacer"></div>
-      <div class="muted">Endpoints: /api/health, /api/stats, /api/messages, /api/messages/recent?limit=, POST /api/messages/clear</div>
-    </div>
-
-    <div class="card">
-      <div class="muted">Response</div>
-      <div id="output" class="output">Click a button to call an endpoint…</div>
+      <div id="output" class="output"></div>
+      <div class="muted">Output shown here</div>
     </div>
 
     <div class="card">
@@ -106,6 +104,34 @@
       return escapeHtml(text).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1<\/a>');
     }
 
+    function formatTimeHM(timestamp) {
+      try {
+        let date;
+        if (!timestamp) return '';
+        if (typeof timestamp === 'string') {
+          const raw = timestamp.trim();
+          const ldt = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+          if (ldt) {
+            const [, y, mo, d, h, mi, s] = ldt.map(Number);
+            date = new Date(y, mo - 1, d, h, mi, s || 0);
+          } else {
+            const isoNoZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/.exec(raw);
+            if (isoNoZone) {
+              const [, y, mo, d, h, mi, s, msStr] = isoNoZone;
+              const ms = msStr ? Number(msStr.padEnd(3, '0').slice(0,3)) : 0;
+              date = new Date(Number(y), Number(mo)-1, Number(d), Number(h), Number(mi), Number(s||0), ms);
+            } else {
+              date = new Date(raw);
+            }
+          }
+        } else {
+          date = new Date(timestamp);
+        }
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+      } catch { return ''; }
+    }
+
     function renderMessagesTable(messages) {
       if (!Array.isArray(messages)) { show(messages); return; }
       // Build rows
@@ -120,7 +146,7 @@
           const caption = m.content ? `<div style="margin-top:6px">${messageHtml}</div>` : '';
           messageHtml = `${img}${caption}`;
         }
-        const time = escapeHtml(m.timestamp ?? '');
+        const time = escapeHtml(formatTimeHM(m.timestamp));
         return `<tr>
           <td style="width:140px">${sender}<div class="badge ${badgeClass}" style="margin-top:4px">${escapeHtml(type)}</div></td>
           <td class="content">${messageHtml}</td>
@@ -183,6 +209,21 @@
       if (!confirm('Are you sure you want to clear ALL messages?')) return;
       const data = await callJSON('/api/messages/clear', { method: 'POST' });
       show(data);
+    });
+
+    document.getElementById('btnReloadAzure').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      try {
+        await callJSON('/api/messages/reload', { method: 'POST' });
+        // After reload, fetch all to display
+        const data = await callJSON('/api/messages');
+        renderMessagesTable(data);
+      } catch (e) {
+        show({ error: true, details: e });
+      } finally {
+        btn.disabled = false;
+      }
     });
   </script>
 </body>
