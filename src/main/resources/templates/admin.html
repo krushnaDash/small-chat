@@ -106,6 +106,34 @@
       return escapeHtml(text).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1<\/a>');
     }
 
+    function formatTimeHM(timestamp) {
+      try {
+        let date;
+        if (!timestamp) return '';
+        if (typeof timestamp === 'string') {
+          const raw = timestamp.trim();
+          const ldt = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+          if (ldt) {
+            const [, y, mo, d, h, mi, s] = ldt.map(Number);
+            date = new Date(y, mo - 1, d, h, mi, s || 0);
+          } else {
+            const isoNoZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/.exec(raw);
+            if (isoNoZone) {
+              const [, y, mo, d, h, mi, s, msStr] = isoNoZone;
+              const ms = msStr ? Number(msStr.padEnd(3, '0').slice(0,3)) : 0;
+              date = new Date(Number(y), Number(mo)-1, Number(d), Number(h), Number(mi), Number(s||0), ms);
+            } else {
+              date = new Date(raw);
+            }
+          }
+        } else {
+          date = new Date(timestamp);
+        }
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+      } catch { return ''; }
+    }
+
     function renderMessagesTable(messages) {
       if (!Array.isArray(messages)) { show(messages); return; }
       // Build rows
@@ -120,7 +148,7 @@
           const caption = m.content ? `<div style="margin-top:6px">${messageHtml}</div>` : '';
           messageHtml = `${img}${caption}`;
         }
-        const time = escapeHtml(m.timestamp ?? '');
+        const time = escapeHtml(formatTimeHM(m.timestamp));
         return `<tr>
           <td style="width:140px">${sender}<div class="badge ${badgeClass}" style="margin-top:4px">${escapeHtml(type)}</div></td>
           <td class="content">${messageHtml}</td>

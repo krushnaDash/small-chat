@@ -23,6 +23,10 @@
     a { color: var(--green); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .error { color: #b42318; background: #fee4e2; padding: 8px 10px; border-radius: 8px; }
+    /* Upload progress */
+    .progress { height: 8px; background: #eef2f6; border-radius: 999px; overflow: hidden; flex: 1; min-width: 160px; }
+    .progress > .bar { height: 100%; width: 0%; background: var(--green); transition: width .2s ease; }
+    .muted.small { font-size: 11px; }
   </style>
 </head>
 <body>
@@ -37,11 +41,16 @@
   </header>
   <main>
     <div class="card">
-      <form method="post" action="/media/upload" enctype="multipart/form-data" class="row">
-        <input type="file" name="file" accept="image/*,video/*" required />
-        <button type="submit" class="btn">Upload</button>
+      <form id="mediaUploadForm" method="post" action="/media/upload" enctype="multipart/form-data" class="row">
+        <input id="mediaFile" type="file" name="file" accept="image/*,video/*" required />
+        <button id="uploadBtn" type="submit" class="btn">Upload</button>
         <div class="muted">Images and videos are supported.</div>
       </form>
+      <div id="progressRow" class="row" style="margin-top:8px; display:none; align-items:center; gap:8px;">
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+        <div class="muted small" id="progressText">0%</div>
+      </div>
+      <div id="uploadError" class="error" style="display:none; margin-top:8px;"></div>
     </div>
 
     <div class="card">
@@ -68,5 +77,71 @@
       </div>
     </div>
   </main>
+  <script>
+    (function(){
+      const form = document.getElementById('mediaUploadForm');
+      const fileInput = document.getElementById('mediaFile');
+      const btn = document.getElementById('uploadBtn');
+      const row = document.getElementById('progressRow');
+      const bar = document.getElementById('progressBar');
+      const txt = document.getElementById('progressText');
+      const err = document.getElementById('uploadError');
+
+      function showError(message){
+        err.textContent = message || 'Upload failed.';
+        err.style.display = 'block';
+      }
+
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        err.style.display = 'none';
+        if (!fileInput.files || fileInput.files.length === 0) { showError('Please choose a file.'); return; }
+
+        // Build form data
+        const fd = new FormData();
+        fd.append('file', fileInput.files[0]);
+
+        // Disable UI and show progress
+        btn.disabled = true;
+        row.style.display = 'flex';
+        bar.style.width = '0%';
+        txt.textContent = '0%';
+
+        // Use XHR for upload progress (works better on Safari/iOS)
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+
+        xhr.upload.onprogress = function(ev){
+          if (ev.lengthComputable) {
+            const pct = Math.round((ev.loaded / ev.total) * 100);
+            bar.style.width = pct + '%';
+            txt.textContent = pct + '%';
+          }
+        };
+
+        xhr.onload = function(){
+          // On success, reload to refresh list
+          if (xhr.status >= 200 && xhr.status < 300) {
+            window.location.href = '/media';
+          } else {
+            btn.disabled = false;
+            showError('Upload failed (' + xhr.status + '). ' + (xhr.responseText || ''));
+          }
+        };
+
+        xhr.onerror = function(){
+          btn.disabled = false;
+          showError('Network error during upload. Please check connectivity.');
+        };
+
+        try {
+          xhr.send(fd);
+        } catch (ex) {
+          btn.disabled = false;
+          showError('Exception: ' + (ex && ex.message ? ex.message : ex));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -11,6 +11,10 @@ var connectedUserElement = document.querySelector('#connected-user-name');
 
 var stompClient = null;
 var username = null;
+var loadedInitialHistory = false;
+var reconnectAttempts = 0;
+var reconnectTimer = null;
+var maxReconnectDelayMs = 30000;
 
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
@@ -33,13 +37,10 @@ function connect(event) {
     username = document.querySelector('#name').value.trim();
 
     if(username) {
+        try { localStorage.setItem('username', username); } catch (e) {}
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
-
-        var socket = new SockJS('/ws');
-        stompClient = Stomp.over(socket);
-
-        stompClient.connect({}, onConnected, onError);
+        initAndConnectStomp();
     }
     event.preventDefault();
 }
@@ -48,7 +49,7 @@ function onConnected() {
     // Subscribe to the Public Topic
     stompClient.subscribe('/topic/public', onMessageReceived);
 
-    // Tell your username to the server
+    // Announce join on connect so users see you entered the room
     stompClient.send("/app/chat.addUser",
         {},
         JSON.stringify({sender: username, type: 'JOIN'})
@@ -56,17 +57,79 @@ function onConnected() {
 
     connectingElement.classList.add('hidden');
     connectedUserElement.textContent = username;
+    setConnectionStatus('Connected');
+    reconnectAttempts = 0;
     
-    // Load recent messages
-    loadRecentMessages();
+    // Load recent messages only once per page load
+    if (!loadedInitialHistory) {
+        loadRecentMessages();
+        loadedInitialHistory = true;
+    }
     
     // Request notification permission
     requestNotificationPermission();
 }
 
 function onError(error) {
-    connectingElement.textContent = 'Could not connect to WebSocket server. Please refresh this page to try again!';
-    connectingElement.style.color = 'red';
+    setConnectionStatus('Disconnected');
+    scheduleReconnect();
+}
+
+function initAndConnectStomp() {
+    // Clear any existing client
+    try { if (stompClient && stompClient.connected) stompClient.disconnect(() => {}); } catch (e) {}
+    const socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+
+    // Optional debug via ?debug=1
+    const debug = new URLSearchParams(location.search).get('debug') === '1';
+    if (!debug) {
+        stompClient.debug = null;
+    }
+
+    // Heartbeats: send every 15s; expect from server every 15s (0 to disable incoming check)
+    stompClient.heartbeat.outgoing = 15000;
+    stompClient.heartbeat.incoming = 15000;
+
+    // Socket close should trigger reconnect
+    socket.onclose = function() {
+        setConnectionStatus('Disconnected');
+        scheduleReconnect();
+    };
+
+    setConnectionStatus('Connecting...');
+    stompClient.connect({}, onConnected, onError);
+}
+
+function isConnected() {
+    return !!(stompClient && stompClient.connected);
+}
+
+function scheduleReconnect() {
+    if (reconnectTimer) return; // already scheduled
+    // Exponential backoff with cap
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelayMs);
+    reconnectAttempts++;
+    const secs = Math.round(delay / 1000);
+    setConnectionStatus('Reconnecting in ' + secs + 's...');
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        initAndConnectStomp();
+    }, delay);
+}
+
+function setConnectionStatus(text) {
+    const pill = document.getElementById('conn-status');
+    if (pill) pill.textContent = text;
+    if (connectingElement) {
+        if (text && text !== 'Connected') {
+            connectingElement.classList.remove('hidden');
+            connectingElement.textContent = text;
+            connectingElement.style.color = (text.startsWith('Connect')) ? '' : 'red';
+        } else {
+            connectingElement.classList.add('hidden');
+        }
+    }
 }
 
 function sendMessage(event) {
@@ -316,10 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // User has username, connect directly
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
-        
-        var socket = new SockJS('/ws');
-        stompClient = Stomp.over(socket);
-        stompClient.connect({}, onConnected, onError);
+        initAndConnectStomp();
     } else {
         // Show username form
         usernamePage.classList.remove('hidden');
@@ -345,9 +405,14 @@ window.addEventListener('load', function() {
 
 // Handle page visibility change to show notifications
 document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        // Page is hidden, enable notifications
-    } else {
-        // Page is visible, user is actively viewing
+    if (!document.hidden) {
+        // When returning to foreground, ensure connection is alive
+        if (!isConnected()) {
+            scheduleReconnect();
+        }
     }
 });
+
+// Network changes: reconnect when back online
+window.addEventListener('online', function(){ if (!isConnected()) scheduleReconnect(); });
+window.addEventListener('offline', function(){ setConnectionStatus('Offline'); });
