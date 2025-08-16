@@ -1,27 +1,56 @@
 package com.krushna.smallchat.service;
 
 import com.krushna.smallchat.model.ChatMessage;
+import com.krushna.smallchat.repository.MessageRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Service
 public class MessageStorageService {
 
+    private static final Logger log = LoggerFactory.getLogger(MessageStorageService.class);
+
     private final ConcurrentMap<String, ChatMessage> messages = new ConcurrentHashMap<>();
+    private final ExecutorService async = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "msg-persist-async");
+        t.setDaemon(true);
+        return t;
+    });
+    
+    @Autowired(required = false)
+    private MessageRepository repository;
     
     @Value("${smallchat.message.retention.days:3}")
     private int messageRetentionDays;
 
     public void saveMessage(ChatMessage message) {
+        // Memory-first
         messages.put(message.getId(), message);
+        // Persist async if repository is enabled
+        if (repository != null && repository.isEnabled()) {
+            async.submit(() -> {
+                try {
+                    repository.save(message);
+                } catch (Exception e) {
+                    log.warn("Failed to persist message {}: {}", message.getId(), e.getMessage());
+                }
+            });
+        }
     }
 
     public List<ChatMessage> getAllMessages() {
@@ -50,21 +79,58 @@ public class MessageStorageService {
     @Scheduled(fixedRate = 3600000) // 1 hour = 3600000 milliseconds
     public void cleanupOldMessages() {
         LocalDateTime cutoffTime = LocalDateTime.now().minusDays(messageRetentionDays);
-        
+
         List<String> messagesToRemove = messages.values()
                 .stream()
-                .filter(message -> message.getTimestamp().isBefore(cutoffTime))
+                .filter(message -> message.getTimestamp() != null && message.getTimestamp().isBefore(cutoffTime))
                 .map(ChatMessage::getId)
                 .collect(Collectors.toList());
 
         messagesToRemove.forEach(messages::remove);
-        
+
+        // Clean in Azure as well (best-effort)
+        if (repository != null && repository.isEnabled()) {
+            async.submit(() -> {
+                try {
+                    int deleted = repository.deleteBefore(cutoffTime);
+                    if (deleted > 0) {
+                        log.info("Azure cleanup deleted {} old messages", deleted);
+                    }
+                } catch (Exception e) {
+                    log.warn("Azure cleanup failed: {}", e.getMessage());
+                }
+            });
+        }
+
         if (!messagesToRemove.isEmpty()) {
-            System.out.println("Cleaned up " + messagesToRemove.size() + " old messages");
+            log.info("Cleaned up {} old messages from memory", messagesToRemove.size());
         }
     }
 
     public int getMessageRetentionDays() {
         return messageRetentionDays;
+    }
+
+    @PostConstruct
+    public void hydrateFromPersistence() {
+        if (repository == null || !repository.isEnabled()) {
+            log.info("Skipping hydration: persistence disabled or not configured");
+            return;
+        }
+        LocalDateTime since = LocalDateTime.now().minusDays(messageRetentionDays);
+        try {
+            List<ChatMessage> persisted = repository.loadSince(since);
+            // Sort by timestamp for deterministic insertion order
+            List<ChatMessage> sorted = new ArrayList<>(persisted);
+            Collections.sort(sorted, (a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+            for (ChatMessage m : sorted) {
+                if (m.getId() != null) {
+                    messages.put(m.getId(), m);
+                }
+            }
+            log.info("Hydrated {} messages from Azure", sorted.size());
+        } catch (Exception e) {
+            log.warn("Failed to hydrate from Azure: {}. Continuing with empty memory.", e.getMessage());
+        }
     }
 }
