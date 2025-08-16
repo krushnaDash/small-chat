@@ -79,6 +79,8 @@
   </main>
   <script>
     (function(){
+      const MAX_MB = 25; // keep in sync with application.properties
+      const MAX_BYTES = MAX_MB * 1024 * 1024;
       const form = document.getElementById('mediaUploadForm');
       const fileInput = document.getElementById('mediaFile');
       const btn = document.getElementById('uploadBtn');
@@ -96,10 +98,12 @@
         e.preventDefault();
         err.style.display = 'none';
         if (!fileInput.files || fileInput.files.length === 0) { showError('Please choose a file.'); return; }
+        const file = fileInput.files[0];
+        if (file.size > MAX_BYTES) { showError('File is too large. Max allowed is ' + MAX_MB + ' MB.'); return; }
 
         // Build form data
         const fd = new FormData();
-        fd.append('file', fileInput.files[0]);
+        fd.append('file', file);
 
         // Disable UI and show progress
         btn.disabled = true;
@@ -125,7 +129,11 @@
             window.location.href = '/media';
           } else {
             btn.disabled = false;
-            showError('Upload failed (' + xhr.status + '). ' + (xhr.responseText || ''));
+            if (xhr.status === 413 || xhr.status === 400) {
+              showError('Upload too large. Max allowed is ' + MAX_MB + ' MB.');
+            } else {
+              showError('Upload failed (' + xhr.status + '). ' + (xhr.responseText || ''));
+            }
           }
         };
 
