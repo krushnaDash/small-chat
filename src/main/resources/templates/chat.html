@@ -32,10 +32,13 @@
                         <span id="connected-user-name"></span>
                     </div>
                 </div>
-                <form method="post" action="/logout">
-                    <input type="hidden" name="redirect" value="/chat" />
-                    <button type="submit" class="accent username-submit" style="padding:6px 10px;">Logout</button>
-                </form>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <a href="/media" class="accent username-submit" style="padding:6px 10px;text-decoration:none;display:inline-block">Media</a>
+                    <form method="post" action="/logout" style="margin:0;">
+                        <input type="hidden" name="redirect" value="/chat" />
+                        <button type="submit" class="accent username-submit" style="padding:6px 10px;">Logout</button>
+                    </form>
+                </div>
             </div>
             <div class="connecting">
                 Connecting...

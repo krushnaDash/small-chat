@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmallChat Media</title>
+  <style>
+    :root { --green: #128C7E; --green-dark: #0e6f65; --bg: #f5f7f8; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: #222; }
+    header { background: var(--green); color: #fff; padding: 16px 20px; }
+    header .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    header h1 { margin: 0; font-size: 18px; }
+    main { padding: 20px; max-width: 980px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 16px; margin-bottom: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn { background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: var(--green-dark); }
+    .muted { color: #667085; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .tile { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+    .tile .thumb { display: block; width: 100%; height: 140px; object-fit: cover; background: #f2f2f2; }
+    .tile .meta { padding: 8px 10px; font-size: 12px; color: #475467; }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .error { color: #b42318; background: #fee4e2; padding: 8px 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>SmallChat Media</h1>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <a href="/chat" class="btn" style="text-decoration:none">Chat</a>
+        <a href="/" class="btn" style="text-decoration:none">Home</a>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <form method="post" action="/media/upload" enctype="multipart/form-data" class="row">
+        <input type="file" name="file" accept="image/*,video/*" required />
+        <button type="submit" class="btn">Upload</button>
+        <div class="muted">Images and videos are supported.</div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="muted">Container contents</div>
+      <div>
+        <!-- Error or disabled note -->
+        <div th:if="${enabled} == false" class="error">Blob storage is not configured. Set AZURE connection string and container to enable.</div>
+        <div th:if="${error}" class="error" th:text="${error}"></div>
+      </div>
+      <div class="grid" th:if="${items}">
+        <div class="tile" th:each="it : ${items}">
+          <a th:href="${it.url}" target="_blank" rel="noopener noreferrer">
+            <img th:if="${it.contentType != null and #strings.startsWith(it.contentType, 'image/') }" th:src="${it.url}" class="thumb" alt="image"/>
+            <video th:if="${it.contentType != null and #strings.startsWith(it.contentType, 'video/') }" class="thumb" controls muted>
+              <source th:src="${it.url}" th:type="${it.contentType}" />
+            </video>
+          </a>
+          <div class="meta">
+            <div th:text="${it.name}"></div>
+            <div th:text="${it.contentType}"></div>
+            <div th:text="${it.size} + ' bytes'"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

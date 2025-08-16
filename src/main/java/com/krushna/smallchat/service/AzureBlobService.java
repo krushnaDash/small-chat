@@ -5,6 +5,9 @@ import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.sas.BlobSasPermission;
+import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
+import com.azure.storage.common.sas.SasProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,7 +74,7 @@ public class AzureBlobService {
         }
         MediaItem item = new MediaItem();
         item.name = blobName;
-        item.url = blobClient.getBlobUrl();
+        item.url = generateReadSasUrl(blobClient);
         item.size = file.getSize();
         item.contentType = ct;
         item.lastModified = OffsetDateTime.now();
@@ -85,7 +88,7 @@ public class AzureBlobService {
             BlobClient bc = containerClient.getBlobClient(bi.getName());
             MediaItem mi = new MediaItem();
             mi.name = bi.getName();
-            mi.url = bc.getBlobUrl();
+            mi.url = generateReadSasUrl(bc);
             mi.size = (bi.getProperties() != null && bi.getProperties().getContentLength() != null) ? bi.getProperties().getContentLength() : null;
             mi.contentType = bi.getProperties() != null ? bi.getProperties().getContentType() : null;
             mi.lastModified = bi.getProperties() != null ? bi.getProperties().getLastModified() : null;
@@ -100,5 +103,21 @@ public class AzureBlobService {
         if (i < 0) return "";
         String ext = name.substring(i + 1).toLowerCase();
         return ext.replaceAll("[^a-z0-9]", "");
+    }
+
+    private static String generateReadSasUrl(BlobClient blobClient) {
+        try {
+            // Read-only SAS for 7 days
+            BlobSasPermission perms = new BlobSasPermission().setReadPermission(true);
+            OffsetDateTime expiry = OffsetDateTime.now().plusDays(7);
+            BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(expiry, perms)
+                    .setProtocol(SasProtocol.HTTPS_ONLY);
+            String sas = blobClient.generateSas(values);
+            if (sas == null || sas.isEmpty()) return blobClient.getBlobUrl();
+            return blobClient.getBlobUrl() + "?" + sas;
+        } catch (Exception e) {
+            // Fallback to plain URL; may not be accessible if public access is disabled
+            return blobClient.getBlobUrl();
+        }
     }
 }
