@@ -59,6 +59,10 @@
           <input id="limit" class="input" type="number" min="1" value="50" />
           <button id="btnRecent" class="btn">Get Recent</button>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input id="admin-include-system" type="checkbox" checked />
+          <span class="muted">Include system (JOIN/LEAVE)</span>
+        </label>
         <button id="btnClear" class="btn danger">Clear All</button>
         <button id="btnReloadAzure" class="btn" title="Reload from Azure Table into memory">Reload from Azure</button>
       </div>
@@ -74,6 +78,17 @@
 
   <script>
     const out = document.getElementById('output');
+    const includeSystemEl = document.getElementById('admin-include-system');
+    // restore saved pref
+    try {
+      const saved = localStorage.getItem('adminIncludeSystem');
+      if (saved === 'true' || saved === 'false') includeSystemEl.checked = (saved === 'true');
+    } catch {}
+    includeSystemEl.addEventListener('change', () => {
+      try { localStorage.setItem('adminIncludeSystem', String(includeSystemEl.checked)); } catch {}
+    });
+
+    function qInc() { return `includeSystem=${includeSystemEl.checked ? 'true' : 'false'}`; }
 
     function show(obj) {
       try {
@@ -195,13 +210,13 @@
     });
 
     document.getElementById('btnAllMsgs').addEventListener('click', async () => {
-      const data = await callJSON('/api/messages');
+      const data = await callJSON(`/api/messages?${qInc()}`);
       renderMessagesTable(data);
     });
 
     document.getElementById('btnRecent').addEventListener('click', async () => {
       const limit = Number(document.getElementById('limit').value) || 50;
-      const data = await callJSON(`/api/messages/recent?limit=${encodeURIComponent(limit)}`);
+      const data = await callJSON(`/api/messages/recent?limit=${encodeURIComponent(limit)}&${qInc()}`);
       renderMessagesTable(data);
     });
 
@@ -217,7 +232,7 @@
       try {
         await callJSON('/api/messages/reload', { method: 'POST' });
         // After reload, fetch all to display
-        const data = await callJSON('/api/messages');
+        const data = await callJSON(`/api/messages?${qInc()}`);
         renderMessagesTable(data);
       } catch (e) {
         show({ error: true, details: e });

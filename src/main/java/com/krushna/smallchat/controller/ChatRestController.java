@@ -19,14 +19,16 @@ public class ChatRestController {
     private MessageStorageService messageStorageService;
 
     @GetMapping("/messages")
-    public ResponseEntity<List<ChatMessage>> getAllMessages() {
-        return ResponseEntity.ok(messageStorageService.getAllMessages());
+    public ResponseEntity<List<ChatMessage>> getAllMessages(
+            @RequestParam(name = "includeSystem", defaultValue = "true") boolean includeSystem) {
+        return ResponseEntity.ok(messageStorageService.getAllMessages(includeSystem));
     }
 
     @GetMapping("/messages/recent")
     public ResponseEntity<List<ChatMessage>> getRecentMessages(
-            @RequestParam(defaultValue = "50") int limit) {
-        return ResponseEntity.ok(messageStorageService.getRecentMessages(limit));
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(name = "includeSystem", defaultValue = "true") boolean includeSystem) {
+        return ResponseEntity.ok(messageStorageService.getRecentMessages(limit, includeSystem));
     }
 
     @GetMapping("/stats")

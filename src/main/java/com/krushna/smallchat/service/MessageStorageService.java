@@ -60,10 +60,25 @@ public class MessageStorageService {
                 .collect(Collectors.toList());
     }
 
+    public List<ChatMessage> getAllMessages(boolean includeSystem) {
+        return new ArrayList<>(messages.values())
+                .stream()
+                .filter(m -> includeSystem || (m.getType() != ChatMessage.MessageType.JOIN && m.getType() != ChatMessage.MessageType.LEAVE))
+                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
+                .collect(Collectors.toList());
+    }
+
     public List<ChatMessage> getRecentMessages(int limit) {
         return getAllMessages()
                 .stream()
                 .skip(Math.max(0, getAllMessages().size() - limit))
+                .collect(Collectors.toList());
+    }
+
+    public List<ChatMessage> getRecentMessages(int limit, boolean includeSystem) {
+        List<ChatMessage> all = getAllMessages(includeSystem);
+        return all.stream()
+                .skip(Math.max(0, all.size() - limit))
                 .collect(Collectors.toList());
     }
 
