@@ -8,6 +8,8 @@ var messageInput = document.querySelector('#message');
 var messageArea = document.querySelector('#messageArea');
 var connectingElement = document.querySelector('.connecting');
 var connectedUserElement = document.querySelector('#connected-user-name');
+var systemToggleEl = null; // will be set on DOMContentLoaded
+var showSystem = true;
 
 var stompClient = null;
 var username = null;
@@ -148,6 +150,11 @@ function sendMessage(event) {
 
 function onMessageReceived(payload) {
     var message = JSON.parse(payload.body);
+
+    // Optionally hide system messages
+    if (!showSystem && (message.type === 'JOIN' || message.type === 'LEAVE')) {
+        return;
+    }
 
     // Do NOT override server timestamp. If missing, fallback to client time.
     if (!message.timestamp) {
@@ -315,10 +322,12 @@ function formatTime(timestamp) {
 }
 
 function loadRecentMessages() {
-    fetch('/api/messages/recent?limit=50')
+    const url = '/api/messages' + '?includeSystem=' + (showSystem ? 'true' : 'false');
+    fetch(url)
         .then(response => response.json())
         .then(messages => {
             messages.forEach(message => {
+                if (!showSystem && (message.type === 'JOIN' || message.type === 'LEAVE')) return;
                 var messageElement = document.createElement('li');
                 
                 if(message.type === 'JOIN' || message.type === 'LEAVE') {
@@ -374,6 +383,26 @@ function showNotification(sender, content) {
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     username = getUsername();
+    // Hook system toggle
+    systemToggleEl = document.getElementById('toggle-system');
+    try {
+        const saved = localStorage.getItem('showSystem');
+        if (saved === 'true' || saved === 'false') showSystem = (saved === 'true');
+    } catch (e) {}
+    if (systemToggleEl) {
+        systemToggleEl.checked = showSystem;
+        systemToggleEl.addEventListener('change', function() {
+            showSystem = !!systemToggleEl.checked;
+            try { localStorage.setItem('showSystem', String(showSystem)); } catch (e) {}
+            // Re-render history according to preference
+            if (messageArea) messageArea.innerHTML = '';
+            loadedInitialHistory = false; // allow reload
+            if (isConnected()) {
+                loadRecentMessages();
+                loadedInitialHistory = true;
+            }
+        });
+    }
     
     if (username) {
         // User has username, connect directly
