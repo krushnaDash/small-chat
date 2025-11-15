@@ -252,6 +252,12 @@ function createMessageContent(message) {
         var messageText = document.createElement('p');
         messageText.textContent = message.content;
         messageContent.appendChild(messageText);
+
+        // Add timestamp for system messages as well
+        var timeElement = document.createElement('div');
+        timeElement.classList.add('message-time');
+        timeElement.textContent = formatTime(message.timestamp);
+        messageContent.appendChild(timeElement);
     } else {
         messageContent.classList.add('message-content');
         
@@ -301,21 +307,32 @@ function formatTime(timestamp) {
         if (typeof timestamp === 'string') {
             const raw = timestamp.trim();
             // Handle common server formats robustly
-            // Case 1: "yyyy-MM-dd HH:mm:ss" (no timezone) -> interpret as LOCAL time
-            const ldtMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(raw);
-            if (ldtMatch) {
-                const [, y, mo, d, h, mi, s] = ldtMatch.map(Number);
-                date = new Date(y, mo - 1, d, h, mi, s);
+            // Case 0: Full ISO with optional fractional seconds and trailing 'Z' (UTC)
+            const isoWithZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z)?$/.exec(raw);
+            if (isoWithZone) {
+                const [, y, mo, d, h, mi, s, msStr, z] = isoWithZone;
+                const ms = msStr ? Number(msStr.slice(0, 3)) : 0; // trim to milliseconds
+                const utcMillis = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), ms);
+                date = new Date(utcMillis);
             } else {
-                // Case 2: ISO-like without timezone -> interpret as LOCAL time
-                const isoNoZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(raw);
-                if (isoNoZone) {
-                    const [, y, mo, d, h, mi, s, msStr] = isoNoZone;
-                    const ms = msStr ? Number(msStr.padEnd(3, '0').slice(0, 3)) : 0;
-                    date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), ms);
+                // Case 1: "yyyy-MM-dd HH:mm:ss" (no timezone) -> interpret as UTC then convert to LOCAL
+                const ldtMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(raw);
+                if (ldtMatch) {
+                    const [, y, mo, d, h, mi, s] = ldtMatch.map(Number);
+                    const utcMillis = Date.UTC(y, mo - 1, d, h, mi, s);
+                    date = new Date(utcMillis);
                 } else {
-                    // Any other parseable format; let Date try
-                    date = new Date(raw);
+                    // Case 2: ISO-like without timezone -> interpret as UTC then convert to LOCAL
+                    const isoNoZone = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(raw);
+                    if (isoNoZone) {
+                        const [, y, mo, d, h, mi, s, msStr] = isoNoZone;
+                        const ms = msStr ? Number(msStr.padEnd(3, '0').slice(0, 3)) : 0;
+                        const utcMillis = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), ms);
+                        date = new Date(utcMillis);
+                    } else {
+                        // Any other parseable format; let Date try
+                        date = new Date(raw);
+                    }
                 }
             }
         } else {
