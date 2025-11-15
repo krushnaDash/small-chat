@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SmallChat - Chat Room</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -33,7 +35,7 @@
         </div>
     </div>
 
-    <div id="chat-page" class="chat-page">
+    <div id="chat-page" class="chat-page hidden">
         <div class="chat-container">
             <div class="chat-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#128C7E;color:#fff;position:sticky;top:0;z-index:10;padding:calc(8px + env(safe-area-inset-top)) 12px 8px 12px;padding-top:calc(8px + constant(safe-area-inset-top));">
                 <div style="display:flex;align-items:center;gap:12px;">
@@ -50,6 +52,7 @@
                         </div>
                         <span>System</span>
                     </label>
+                    <button id="refresh-btn" class="accent username-submit" style="padding:6px 10px;" title="Refresh messages">🔄</button>
                     <a href="/media" class="accent username-submit" style="padding:6px 10px;text-decoration:none;display:inline-block">Media</a>
                     <form method="post" action="/logout" style="margin:0;">
                         <input type="hidden" name="redirect" value="/chat" />

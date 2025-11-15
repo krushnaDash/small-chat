@@ -36,15 +36,41 @@ function getUsername() {
 }
 
 function connect(event) {
+    console.log('Connect function called');
+    event.preventDefault();
+    
     username = document.querySelector('#name').value.trim();
+    console.log('Username:', username);
 
     if(username) {
         try { localStorage.setItem('username', username); } catch (e) {}
-        usernamePage.classList.add('hidden');
-        chatPage.classList.remove('hidden');
-        initAndConnectStomp();
+        
+        // Blur the input to dismiss keyboard on iOS
+        const nameInput = document.querySelector('#name');
+        if (nameInput) nameInput.blur();
+        
+        console.log('Transitioning to chat page...');
+        console.log('Before transition - usernamePage classes:', usernamePage.className);
+        console.log('Before transition - chatPage classes:', chatPage.className);
+        
+        // Use requestAnimationFrame for smooth transition on all browsers
+        requestAnimationFrame(() => {
+            usernamePage.classList.add('hidden');
+            chatPage.classList.remove('hidden');
+            
+            console.log('After transition - usernamePage classes:', usernamePage.className);
+            console.log('After transition - chatPage classes:', chatPage.className);
+            
+            // Scroll to top to ensure chat page is visible on iOS
+            window.scrollTo(0, 0);
+            document.body.scrollTop = 0;
+            
+            console.log('Initializing STOMP connection...');
+            initAndConnectStomp();
+        });
+    } else {
+        console.log('No username entered');
     }
-    event.preventDefault();
 }
 
 function onConnected() {
@@ -353,6 +379,15 @@ function loadRecentMessages() {
         });
 }
 
+function refreshMessages() {
+    if (messageArea) {
+        messageArea.innerHTML = '';
+    }
+    loadedInitialHistory = false;
+    loadRecentMessages();
+    loadedInitialHistory = true;
+}
+
 function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
@@ -404,10 +439,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Hook refresh button
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            refreshMessages();
+        });
+    }
+    
+    // Attach form event listeners
+    console.log('usernameForm element:', usernameForm);
+    console.log('messageForm element:', messageForm);
+    console.log('usernamePage element:', usernamePage);
+    console.log('chatPage element:', chatPage);
+    
+    if (usernameForm) {
+        console.log('Attaching submit listener to username form');
+        usernameForm.addEventListener('submit', connect, { once: false });
+    } else {
+        console.error('Username form not found!');
+    }
+    
+    if (messageForm) {
+        messageForm.addEventListener('submit', sendMessage, { once: false });
+    }
+    
     if (username) {
         // User has username, connect directly
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
+        // Ensure viewport is at top on iOS
+        window.scrollTo(0, 0);
         initAndConnectStomp();
     } else {
         // Show username form
@@ -415,15 +478,6 @@ document.addEventListener('DOMContentLoaded', function() {
         chatPage.classList.add('hidden');
     }
 });
-
-// Event listeners
-if (usernameForm) {
-    usernameForm.addEventListener('submit', connect, true);
-}
-
-if (messageForm) {
-    messageForm.addEventListener('submit', sendMessage, true);
-}
 
 // Focus on message input when page loads
 window.addEventListener('load', function() {
