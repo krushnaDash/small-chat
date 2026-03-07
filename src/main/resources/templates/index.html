@@ -26,6 +26,6 @@
         </div>
     </div>
 
-    <script src="/js/main.js"></script>
+    <script th:src="@{/js/main.js(v=${#dates.format(#dates.createNow(), 'yyyyMMddHHmmss')})}"></script>
 </body>
 </html>
