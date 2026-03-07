@@ -105,6 +105,15 @@ public class AzureTableMessageRepository implements MessageRepository {
         e.addProperty("type", m.getType() != null ? m.getType().name() : null);
         e.addProperty("timestampIso", m.getTimestamp() != null ? m.getTimestamp().format(ISO) : null);
         e.addProperty("tsEpoch", epoch);
+        
+        // Store reply information if present
+        if (m.getReplyTo() != null) {
+            ChatMessage.ReplyInfo reply = m.getReplyTo();
+            e.addProperty("replyToId", reply.getId());
+            e.addProperty("replyToSender", reply.getSender());
+            e.addProperty("replyToContent", reply.getContent());
+        }
+        
         return e;
     }
 
@@ -124,10 +133,24 @@ public class AzureTableMessageRepository implements MessageRepository {
                 m.setTimestamp(LocalDateTime.parse(tsIso.toString(), ISO));
             } else {
                 Object tsEpoch = e.getProperty("tsEpoch");
-                if (tsEpoch instanceof Number) {
-                    m.setTimestamp(LocalDateTime.ofEpochSecond(((Number) tsEpoch).longValue() / 1000, 0, ZoneOffset.UTC));
+                if (tsEpoch instanceof Number number) {
+                    m.setTimestamp(LocalDateTime.ofEpochSecond(number.longValue() / 1000, 0, ZoneOffset.UTC));
                 }
             }
+            
+            // Restore reply information if present
+            Object replyToId = e.getProperty("replyToId");
+            if (replyToId != null) {
+                Object replyToSender = e.getProperty("replyToSender");
+                Object replyToContent = e.getProperty("replyToContent");
+                ChatMessage.ReplyInfo reply = new ChatMessage.ReplyInfo(
+                    replyToId.toString(),
+                    replyToSender != null ? replyToSender.toString() : null,
+                    replyToContent != null ? replyToContent.toString() : null
+                );
+                m.setReplyTo(reply);
+            }
+            
             return m;
         } catch (Exception ex) {
             log.warn("Failed to parse entity {}: {}", e.getRowKey(), ex.getMessage());
