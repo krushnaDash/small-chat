@@ -23,6 +23,11 @@ var colors = [
     '#ffc107', '#ff85af', '#FF9800', '#39bbb0'
 ];
 
+// Text reply feature
+var selectedText = '';
+var replyingTo = null;
+var replyModal = null;
+
 // Get username from URL parameters or localStorage
 function getUsername() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -166,12 +171,54 @@ function sendMessage(event) {
         var chatMessage = {
             sender: username,
             content: messageInput.value,
-            type: 'CHAT'
+            type: 'CHAT',
+            replyTo: replyingTo
         };
         stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
         messageInput.value = '';
+        clearReply();
     }
     event.preventDefault();
+}
+
+function clearReply() {
+    replyingTo = null;
+    selectedText = '';
+    var replyPreview = document.getElementById('reply-preview');
+    if (replyPreview) {
+        replyPreview.remove();
+    }
+}
+
+function setReply(messageId, senderName, content) {
+    replyingTo = {
+        id: messageId,
+        sender: senderName,
+        content: content
+    };
+    selectedText = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+    
+    var existingReply = document.getElementById('reply-preview');
+    if (existingReply) {
+        existingReply.remove();
+    }
+    
+    var replyPreview = document.createElement('div');
+    replyPreview.id = 'reply-preview';
+    replyPreview.className = 'reply-preview';
+    replyPreview.innerHTML = '<div class="reply-info"><strong>Replying to ' + escapeHtml(senderName) + ':</strong><br><span class="reply-text">' + escapeHtml(selectedText) + '</span></div><button class="reply-close" onclick="clearReply()">✕</button>';
+    
+    var formGroup = document.querySelector('#messageForm .form-group');
+    if (formGroup) {
+        formGroup.insertBefore(replyPreview, formGroup.firstChild);
+    }
+    messageInput.focus();
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function onMessageReceived(payload) {
@@ -253,7 +300,6 @@ function createMessageContent(message) {
         messageText.textContent = message.content;
         messageContent.appendChild(messageText);
 
-        // Add timestamp for system messages as well
         var timeElement = document.createElement('div');
         timeElement.classList.add('message-time');
         timeElement.textContent = formatTime(message.timestamp);
@@ -273,8 +319,39 @@ function createMessageContent(message) {
             messageContent.appendChild(senderElement);
         }
         
+        if(message.replyTo) {
+            var replyBox = document.createElement('div');
+            replyBox.classList.add('reply-box');
+            
+            var replyHeader = document.createElement('div');
+            replyHeader.classList.add('reply-header');
+            var senderName = 'Unknown';
+            if (typeof message.replyTo === 'object' && message.replyTo.sender) {
+                senderName = message.replyTo.sender;
+            } else if (typeof message.replyTo === 'string') {
+                senderName = message.replyTo;
+            }
+            replyHeader.textContent = senderName;
+            replyBox.appendChild(replyHeader);
+            
+            var replyContent = document.createElement('div');
+            replyContent.classList.add('reply-content');
+            var replyText = '';
+            if (typeof message.replyTo === 'object' && message.replyTo.content) {
+                replyText = message.replyTo.content;
+            }
+            if (replyText) {
+                replyContent.textContent = replyText.substring(0, 100) + (replyText.length > 100 ? '...' : '');
+            } else {
+                replyContent.textContent = 'Original message';
+            }
+            replyBox.appendChild(replyContent);
+            
+            messageContent.appendChild(replyBox);
+        }
+        
         var textElement = document.createElement('div');
-        // Use the new function to handle URLs instead of plain textContent
+        textElement.classList.add('message-text');
         setMessageHtml(textElement, message.content);
         messageContent.appendChild(textElement);
         
@@ -282,6 +359,14 @@ function createMessageContent(message) {
         timeElement.classList.add('message-time');
         timeElement.textContent = formatTime(message.timestamp);
         messageContent.appendChild(timeElement);
+        
+        var replyBtn = document.createElement('button');
+        replyBtn.className = 'reply-btn';
+        replyBtn.textContent = '↩ Reply';
+        replyBtn.onclick = function() {
+            setReply(message.id || Date.now(), message.sender, message.content);
+        };
+        messageContent.appendChild(replyBtn);
     }
     
     return messageContent;
@@ -432,9 +517,36 @@ function showNotification(sender, content) {
     }
 }
 
+function initFallingEmojis() {
+    var emojis = ['❤️', '🌸', '💕', '🌺', '💖', '🌼'];
+    var container = document.querySelector('.chat-page');
+    
+    if (!container) return;
+    
+    function createFallingEmoji() {
+        var emoji = document.createElement('div');
+        emoji.className = 'falling-emoji';
+        emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        emoji.style.left = Math.random() * 100 + '%';
+        emoji.style.fontSize = (Math.random() * 20 + 20) + 'px';
+        emoji.style.opacity = Math.random() * 0.5 + 0.3;
+        emoji.style.animation = 'fall ' + (Math.random() * 3 + 4) + 's linear forwards';
+        
+        container.appendChild(emoji);
+        
+        setTimeout(function() {
+            emoji.remove();
+        }, 7000);
+    }
+    
+    setInterval(createFallingEmoji, 800);
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     username = getUsername();
+    initFallingEmojis();
+    
     // Hook system toggle
     systemToggleEl = document.getElementById('toggle-system');
     try {
