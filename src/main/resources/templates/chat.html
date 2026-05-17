@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>SmallChat - Chat Room</title>
+    <title>NC - Chat Room</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
@@ -15,7 +15,7 @@
       .switch input { opacity: 0; width: 0; height: 0; }
       .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.3); transition: .2s; border-radius: 999px; }
       .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; top: 2px; background-color: white; transition: .2s; border-radius: 50%; }
-      input:checked + .slider { background-color: #0fe3cc; }
+      input:checked + .slider { background-color: #FF8C00; }
       input:checked + .slider:before { transform: translateX(16px); }
       
       /* Falling emojis animation */
@@ -36,7 +36,7 @@
       /* Reply feature styles */
       .reply-preview {
         background: #f0f0f0;
-        border-left: 4px solid #128C7E;
+        border-left: 4px solid #FF8C00;
         padding: 12px 40px 12px 12px;
         margin: 0 0 12px 0;
         border-radius: 8px;
@@ -91,7 +91,7 @@
       .reply-btn {
         background: none;
         border: none;
-        color: #128C7E;
+        color: #FF8C00;
         cursor: pointer;
         font-size: 11px;
         padding: 4px 8px;
@@ -105,8 +105,8 @@
       }
       
       .reply-box {
-        background: rgba(18, 140, 126, 0.08);
-        border-left: 4px solid #128C7E;
+        background: rgba(255, 140, 0, 0.08);
+        border-left: 4px solid #FF8C00;
         padding: 6px 10px;
         margin: 0 0 6px 0;
         border-radius: 6px;
@@ -118,7 +118,7 @@
       .reply-header {
         font-weight: 600;
         font-size: 13px;
-        color: #128C7E;
+        color: #FF8C00;
         margin-bottom: 2px;
       }
       
@@ -156,9 +156,9 @@
 
     <div id="chat-page" class="chat-page hidden">
         <div class="chat-container">
-            <div class="chat-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#128C7E;color:#fff;position:sticky;top:0;z-index:10;padding:calc(8px + env(safe-area-inset-top)) 12px 8px 12px;padding-top:calc(8px + constant(safe-area-inset-top));">
+            <div class="chat-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FF8C00;color:#fff;position:sticky;top:0;z-index:10;padding:calc(8px + env(safe-area-inset-top)) 12px 8px 12px;padding-top:calc(8px + constant(safe-area-inset-top));">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <h2 style="margin:0;">SmallChat</h2>
+                    <h2 style="margin:0;">NC</h2>
                     <div class="connected-user-repl">
                         <span id="connected-user-name"></span>
                     </div>
