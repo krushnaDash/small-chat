@@ -208,7 +208,7 @@ body:before {
 }
 
 .message-area li.chat-message.sent {
-    align-items: flex-end;
+    align-items: flex-start;
 }
 
 .message-area li.chat-message.received {
