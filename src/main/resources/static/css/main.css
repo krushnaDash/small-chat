@@ -28,7 +28,7 @@ body:before {
     position: absolute;
     top: 0;
     left: 0;
-    background: #128C7E;
+    background: #FF8C00;
     content: "";
     z-index: 0;
 }
@@ -54,7 +54,7 @@ body:before {
 }
 
 .form-control:focus {
-    border-color: #128C7E;
+    border-color: #FF8C00;
 }
 
 .form-group {
@@ -94,7 +94,7 @@ body:before {
 .username-page .title {
     font-size: 2.5rem;
     margin-bottom: 10px;
-    color: #128C7E;
+    color: #FF8C00;
     font-weight: 300;
 }
 
@@ -110,14 +110,14 @@ body:before {
     padding: 15px;
     border-radius: 27px;
     border: none;
-    background: #128C7E;
+    background: #FF8C00;
     color: white;
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
 .username-submit:hover {
-    background: #075E54;
+    background: #FF7700;
 }
 
 .stats {
@@ -151,7 +151,7 @@ body:before {
 }
 
 .chat-header {
-    background: #128C7E;
+    background: #FF8C00;
     color: white;
     padding: 15px 20px;
     display: flex;
@@ -224,7 +224,7 @@ body:before {
 }
 
 .message-content.sent {
-    background: #DCF8C6;
+    background: #FFE4CC;
     color: #000;
 }
 
@@ -250,19 +250,19 @@ body:before {
 
 /* Styles for clickable links in messages */
 .message-content a {
-    color: #128C7E;
+    color: #FF8C00;
     text-decoration: underline;
     word-break: break-all;
     transition: color 0.2s;
 }
 
 .message-content a:hover {
-    color: #075E54;
+    color: #FF7700;
     text-decoration: none;
 }
 
 .message-content a:visited {
-    color: #128C7E;
+    color: #FF8C00;
 }
 
 #messageForm {
@@ -288,7 +288,7 @@ body:before {
     padding: 12px 20px;
     border-radius: 25px;
     border: none;
-    background: #128C7E;
+    background: #FF8C00;
     color: white;
     cursor: pointer;
     font-size: 16px;
@@ -296,7 +296,7 @@ body:before {
 }
 
 .input-group button:hover {
-    background: #075E54;
+    background: #FF7700;
 }
 
 @media screen and (max-width: 480px) {
